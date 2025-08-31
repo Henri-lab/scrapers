@@ -1,0 +1,4 @@
+{
+    "python.pythonPath": "/opt/homebrew/anaconda3/envs/web-scraping/bin/python",
+    "python.defaultInterpreterPath": "/opt/homebrew/anaconda3/envs/web-scraping/bin/python"
+}
