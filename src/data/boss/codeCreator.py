@@ -1,8 +1,15 @@
+
 import os
-import requests
 import json
+import requests
 
-
+def save_to_json_file(data, filename):
+    """保存数据到JSON文件"""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    filepath = os.path.join(script_dir, filename)
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=4)
+        
 def fetch_json_data(url):
     """通用API请求函数"""
     try:
@@ -12,7 +19,6 @@ def fetch_json_data(url):
     except requests.exceptions.RequestException as e:
         print(f"请求失败: {e}")
         exit()
-
 
 def traverse_hierarchical_data(data_list, result_dict, deep=0):
     deep -= 1
@@ -36,12 +42,6 @@ def traverse_hierarchical_data(data_list, result_dict, deep=0):
             traverse_hierarchical_data(item["subLevelModelList"], result_dict, deep)
 
 
-def save_to_json_file(data, filename):
-    """保存数据到JSON文件"""
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    filepath = os.path.join(script_dir, filename)
-    with open(filepath, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
 
 
 def getCityCodes():

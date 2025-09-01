@@ -6,6 +6,14 @@ import random
 from urllib.parse import quote
 from DrissionPage import Chromium, ChromiumOptions
 
+# 将项目根目录添加到Python路径
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+sys.path.insert(0, project_root)
+
+from src.utils import save_to_json_file
+
+
+
 # 添加当前目录到Python路径
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_dir)
@@ -167,9 +175,25 @@ class BossJobScraper:
             return f"{base_url}?{param_str}"
         return base_url
 
+    def load_city_codes(self):
+        """加载城市代码映射"""
+        try:
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            city_file = os.path.join(script_dir, "city_code_map.json")
+
+            if os.path.exists(city_file):
+                with open(city_file, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            else:
+                print("城市代码文件不存在，正在生成...")
+                return codeCreator.getCityCodes()
+        except Exception as e:
+            print(f"加载城市代码失败: {e}")
+            return {}
+
     def search_jobs(self, search_params):
         """
-        搜索职位
+        搜索职位 - 使用数据包监听获取API响应
 
         Args:
             search_params (dict): 搜索参数
@@ -181,45 +205,55 @@ class BossJobScraper:
             # 确保正确的访问流程
             self.ensure_proper_access()
 
-            # 先访问网页搜索页面
+            # 开启数据包监听
+            self.page.listen.start("joblist.json")
+
+            # 访问网页搜索页面，触发API请求
             web_url = self.build_url(search_params, "web")
-            print(f"访问网页搜索: {web_url}")
+            print(f"访问搜索页面: {web_url}")
+
             self.page.get(web_url)
-            time.sleep(random.uniform(3, 6))
 
-            # 等待页面加载完成
-            self.page.wait.load_complete()
-            time.sleep(2)
+            # 等待页面加载和API请求完成
+            time.sleep(random.uniform(3, 8))
 
-            # 现在尝试获取API数据
-            api_url = self.build_url(search_params, "api")
-            print(f"请求API: {api_url}")
+            # 获取监听到的数据包
+            packets = self.page.listen.wait(timeout=15)
 
-            # 使用浏览器访问API
-            self.page.get(api_url)
-            time.sleep(random.uniform(2, 4))
+            if not packets:
+                print("未监听到joblist.json数据包")
+                return {
+                    "success": False,
+                    "data": None,
+                    "message": "未能获取到API响应数据",
+                }
 
-            # 获取页面JSON数据
-            page_text = self.page.html
+            # 处理最新的数据包
+            latest_packet = packets[-1] if isinstance(packets, list) else packets
 
-            # 尝试解析JSON
             try:
-                data = json.loads(page_text)
-            except json.JSONDecodeError:
-                # 如果页面不是纯JSON，尝试从<pre>标签中提取
-                pre_elem = self.page.ele("pre")
-                if pre_elem:
-                    data = json.loads(pre_elem.text)
-                else:
-                    # 检查是否被重定向或需要验证
-                    current_url = self.page.url
-                    if "login" in current_url or "verify" in current_url:
-                        return {
-                            "success": False,
-                            "data": None,
-                            "message": "需要登录或验证",
-                        }
-                    raise Exception(f"无法解析响应数据，当前页面: {current_url}")
+                # 获取响应数据
+                response_data = latest_packet.response.body
+
+                # 如果是字节类型，转换为字符串
+                if isinstance(response_data, bytes):
+                    response_data = response_data.decode("utf-8")
+
+                # 解析JSON数据
+                data = json.loads(response_data)
+
+                save_to_json_file(data, "last_search_response.json")
+
+            except (json.JSONDecodeError, AttributeError, UnicodeDecodeError) as e:
+                print(f"解析响应数据失败: {e}")
+                return {
+                    "success": False,
+                    "data": None,
+                    "message": f"数据解析失败: {str(e)}",
+                }
+
+            # 停止监听
+            self.page.listen.stop()
 
             # 检查响应状态
             if data.get("code") == 0:
@@ -242,6 +276,12 @@ class BossJobScraper:
                 }
 
         except Exception as e:
+            # 确保停止监听
+            try:
+                self.page.listen.stop()
+            except:
+                pass
+
             return {"success": False, "data": None, "message": f"搜索失败: {str(e)}"}
 
     def extract_job_data(self, job_list):
