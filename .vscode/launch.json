@@ -5,12 +5,9 @@
             "name": "Python Debugger: boss_scraper",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/src/data/boss/boss_scraper.py",
+            "module": "src.data.boss.boss_scraper",
             "cwd": "${workspaceFolder}",
-            "console": "integratedTerminal",
-            "env": {
-                "PYTHONPATH": "${workspaceFolder}"
-            }
+            "console": "integratedTerminal"
         }
     ]
 }
