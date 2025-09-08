@@ -17,7 +17,7 @@ class BossUrlBuilder:
         
         # 尝试导入查询创建器
         try:
-            from queryCreator import QueryCreater
+            from .queryCreator import QueryCreater
             self.query_creator = QueryCreater()
         except ImportError:
             print("❌ 无法导入QueryCreater，条件查询功能将受限")
